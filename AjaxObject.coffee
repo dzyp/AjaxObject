@@ -1,7 +1,7 @@
 class @AjaxObject
 	
 	@path = '/Scripts/parser.js'
-	@hasWorker = window.worker?
+	@hasWorker = window.worker != null
 
 	@worker
 	
@@ -19,7 +19,9 @@ class @AjaxObject
 		$.ajax(config)
 
 	multiThread: (config, onSuccess, onFailure) =>
-		@singleThread config, onSuccess, onFailure if !AjaxObject.hasWorker?
+		if not AjaxObject.hasWorker
+			@singleThread config, onSuccess, onFailure
+			return
 
 		@worker.addEventListener 'message', (res) =>
 			if res?

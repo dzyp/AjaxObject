@@ -5,7 +5,7 @@
 
     AjaxObject.path = '/Scripts/parser.js';
 
-    AjaxObject.hasWorker = window.worker != null;
+    AjaxObject.hasWorker = window.worker !== null;
 
     AjaxObject.worker;
 
@@ -30,8 +30,9 @@
 
     AjaxObject.prototype.multiThread = function(config, onSuccess, onFailure) {
       var _this = this;
-      if (!(AjaxObject.hasWorker != null)) {
+      if (!AjaxObject.hasWorker) {
         this.singleThread(config, onSuccess, onFailure);
+        return;
       }
       this.worker.addEventListener('message', function(res) {
         if (res != null) {
