@@ -1,38 +1,53 @@
+
+
 class @AjaxObject
-	
-	@path = '/static/parser.js'
-	@hasWorker = window.worker != null
-	
-	constructor: (path) ->
+
+  @path = '/static/parser.js'
+  @hasWorker = window.worker != null
+
+  @callbackIndex = 0
+
+  constructor: (path) ->
     if AjaxObject.hasWorker
+      AjaxObject.callbacks = []
       if path?.length
         AjaxObject.path = path
       AjaxObject.worker = new Worker(AjaxObject.path)
+      AjaxObject.worker.addEventListener 'message', (res) ->
+        fxns = AjaxObject._getCallback(res.data.id)
+        if !res.data.error
+          fxns.onSuccess res.data.response
+        else
+          fxns.onFailure res.data.response
 
 
-	singleThread: (config, onSuccess, onFailure) ->
-		config.success = (res) =>
-			obj = eval '(' + res + ')'
-			onSuccess obj	
-		config.error = (res) =>
-			onFailure
-		$.ajax(config)
+  @_getCallback = (index) ->
+    for i, fxns of AjaxObject.callbacks
+      if fxns.id is index
+        return fxns.fxns
+    return null
 
-	multiThread: (config, onSuccess, onFailure) ->
-		if not AjaxObject.hasWorker
+  singleThread: (config, onSuccess, onFailure) ->
+    config.success = (res) =>
+      obj = eval '(' + res + ')'
+      onSuccess obj
+    config.error = (res) =>
+      onFailure
+    $.ajax(config)
+
+  multiThread: (config, onSuccess, onFailure) ->
+    if not AjaxObject.hasWorker
       @singleThread config, onSuccess, onFailure
       return
 
-
-    callback = (res) ->
-      if !res.data.error
-        onSuccess res.data.response
-      else
-        onFailure res.data.response
-      AjaxObject.worker.removeEventListener('message', callback, false)
-
-
-    AjaxObject.worker.addEventListener 'message', callback, false
-
-    AjaxObject.worker.postMessage config
-
+    obj = new Object()
+    obj.id = AjaxObject.callbackIndex
+    AjaxObject.callbackIndex++
+    obj.fxns = new Object()
+    obj.fxns.onSuccess = onSuccess
+    obj.fxns.onFailure = onFailure
+    tempConfig = new Object()
+    $.extend(true, tempConfig, config)
+    tempConfig.id = obj.id
+    AjaxObject.callbacks.push(obj)
+    AjaxObject.worker.postMessage tempConfig
