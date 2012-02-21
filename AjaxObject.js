@@ -1,25 +1,23 @@
 (function() {
-  var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
   this.AjaxObject = (function() {
 
-    AjaxObject.path = '/Scripts/parser.js';
+    AjaxObject.path = '/static/parser.js';
 
     AjaxObject.hasWorker = window.worker !== null;
 
-    AjaxObject.worker;
-
     function AjaxObject(path) {
-      this.multiThread = __bind(this.multiThread, this);
-      this.singleThread = __bind(this.singleThread, this);      if (path != null ? path.length : void 0) AjaxObject.path = path;
-      this.worker = new Worker(AjaxObject.path);
+      if (AjaxObject.hasWorker) {
+        if (path != null ? path.length : void 0) AjaxObject.path = path;
+        AjaxObject.worker = new Worker(AjaxObject.path);
+      }
     }
 
     AjaxObject.prototype.singleThread = function(config, onSuccess, onFailure) {
       var _this = this;
       config.success = function(res) {
         var obj;
-        obj = eval(res);
+        obj = eval('(' + res + ')');
         return onSuccess(obj);
       };
       config.error = function(res) {
@@ -29,19 +27,21 @@
     };
 
     AjaxObject.prototype.multiThread = function(config, onSuccess, onFailure) {
-      var _this = this;
+      var callback;
       if (!AjaxObject.hasWorker) {
         this.singleThread(config, onSuccess, onFailure);
         return;
       }
-      this.worker.addEventListener('message', function(res) {
-        if (res != null) {
-          return onSuccess(res.data);
+      callback = function(res) {
+        if (!res.data.error) {
+          onSuccess(res.data.response);
         } else {
-          return onFailure;
+          onFailure(res.data.response);
         }
-      });
-      return this.worker.postMessage(config);
+        return AjaxObject.worker.removeEventListener('message', callback, false);
+      };
+      AjaxObject.worker.addEventListener('message', callback, false);
+      return AjaxObject.worker.postMessage(config);
     };
 
     return AjaxObject;

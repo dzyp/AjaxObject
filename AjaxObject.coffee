@@ -1,33 +1,38 @@
 class @AjaxObject
 	
-	@path = '/Scripts/parser.js'
+	@path = '/static/parser.js'
 	@hasWorker = window.worker != null
-
-	@worker
 	
 	constructor: (path) ->
-		if path?.length
-			AjaxObject.path = path
-		@worker = new Worker(AjaxObject.path)
+    if AjaxObject.hasWorker
+      if path?.length
+        AjaxObject.path = path
+      AjaxObject.worker = new Worker(AjaxObject.path)
 
-	singleThread: (config, onSuccess, onFailure) =>	
+
+	singleThread: (config, onSuccess, onFailure) ->
 		config.success = (res) =>
-			obj = eval res
+			obj = eval '(' + res + ')'
 			onSuccess obj	
 		config.error = (res) =>
 			onFailure
 		$.ajax(config)
 
-	multiThread: (config, onSuccess, onFailure) =>
+	multiThread: (config, onSuccess, onFailure) ->
 		if not AjaxObject.hasWorker
-			@singleThread config, onSuccess, onFailure
-			return
+      @singleThread config, onSuccess, onFailure
+      return
 
-		@worker.addEventListener 'message', (res) =>
-			if res?
-				onSuccess res.data
-			else
-				onFailure
-		@worker.postMessage config
 
+    callback = (res) ->
+      if !res.data.error
+        onSuccess res.data.response
+      else
+        onFailure res.data.response
+      AjaxObject.worker.removeEventListener('message', callback, false)
+
+
+    AjaxObject.worker.addEventListener 'message', callback, false
+
+    AjaxObject.worker.postMessage config
 
